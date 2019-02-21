@@ -1,0 +1,84 @@
+package com.aiceking.netapiloader.http.observer;
+
+import android.text.TextUtils;
+
+
+import com.aiceking.netapiloader.http.exception.ApiException;
+import com.aiceking.netapiloader.http.httprequestlife.HttpRequestListener;
+import com.aiceking.netapiloader.http.httprequestlife.HttpRequestManagerImpl;
+import com.aiceking.netapiloader.response.BaseModel;
+
+import io.reactivex.Observer;
+import io.reactivex.annotations.NonNull;
+import io.reactivex.disposables.Disposable;
+
+/**
+ * Created by radio on 2017/9/20.
+ */
+
+public abstract class RetrofitRxObserver<T> implements Observer<BaseModel<T>>, HttpRequestListener {
+    private String Request_Tag;//请求标识
+    public RetrofitRxObserver(){
+
+    }
+    public RetrofitRxObserver(String Request_Tag){
+        this.Request_Tag=Request_Tag;
+    }
+    @Override
+    public void onSubscribe(@NonNull Disposable d) {
+        if (!TextUtils.isEmpty(Request_Tag)) {
+            HttpRequestManagerImpl.getInstance().add(Request_Tag,d);
+        }
+        onStart(d);
+    }
+
+    @Override
+    public void onNext(@NonNull BaseModel<T> response) {
+        if (!TextUtils.isEmpty(Request_Tag)) {
+            HttpRequestManagerImpl.getInstance().remove(Request_Tag);
+        }
+        onSuccess(response);
+    }
+
+    @Override
+    public void onError(@NonNull Throwable e) {
+        HttpRequestManagerImpl.getInstance().remove(Request_Tag);
+        if (e instanceof ApiException) {
+            onError((ApiException) e);
+        } else {
+            onError(new ApiException(e, 123));
+        }
+    }
+    @Override
+    public void cancle() {
+        if (!TextUtils.isEmpty(Request_Tag)) {
+            HttpRequestManagerImpl.getInstance().cancle(Request_Tag);
+        }
+    }
+    /*** 是否已经取消请求*/
+    public boolean isDisposed() {
+        if (TextUtils.isEmpty(Request_Tag)) {
+            return true;
+        }
+        return HttpRequestManagerImpl.getInstance().isDisposed(Request_Tag);
+    }
+    @Override
+    public void onComplete() {
+
+    }
+    protected abstract void onStart(Disposable d);
+
+    /**
+     * 错误/异常回调
+     *
+     * @author ZhongDaFeng
+     */
+    protected abstract void onError(ApiException e);
+
+    /**
+     * 成功回调
+     *
+     * @author ZhongDaFeng
+     */
+    protected abstract void onSuccess(BaseModel<T> response);
+}
